@@ -3,6 +3,7 @@ import __future__
 from optparse import OptionParser
 from sys import argv
 import gzip
+import platform
 
 
 colours = {
@@ -40,29 +41,35 @@ def openfile(filename):
     '''
     try:
         if filename.endswith('.gz'):
-            return gzipPatch(filename, "rt")
+            if float(platform.python_version().replace(".", "")) < 270:
+                return gzipPatch(filename, "rt")
+            return gzip.open(filename, "rt")
         return open(filename, "r")
     except AttributeError:
         return open(filename, "r")
 
 
-def usage_overview(log):
+def get_log_info(log):
     """
     Total bandwidth for each unique resource
     """
-    d = {}
+    resources = {}
     
     with openfile(log) as log:
         for line in log:
             line = line.split()
             try:
-                d[line[6]] = d.setdefault(line[6], 0) + int(line[9])
+                location = line[6].split("?id", 1)[0]
+                resources[location] = resources.setdefault(location, 0) + int(line[9])
             except IndexError:
                 pass
     
-    sorted_d = sorted(d.items(), key=lambda kv: kv[1])
-    
-    for i in sorted_d:
+    sorted_resources = sorted(resources.items(), key=lambda kv: kv[1])
+    return sorted_resources
+
+
+def top_consumers(log):
+    for i in log:
         total_size = round((float(i[1]/1024) / 1024), 2)
         if total_size != 0:
             print("File: {0}  {2}Total Bandwidth{4} {3}{1}{4} MB".format(i[0], total_size, colours["YELLOW"], colours["RED"], colours["ENDC"]))
@@ -84,7 +91,9 @@ def main():
 
     (options, args) = parser.parse_args()
     if options.file:
-        usage_overview(options.file)
+        l = get_log_info(options.file)
+        top_consumers(l)
+
 
 if __name__ == '__main__':
     main()
