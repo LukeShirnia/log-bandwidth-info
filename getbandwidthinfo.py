@@ -68,7 +68,7 @@ def get_log_info(log):
     return sorted_resources
 
 
-def top_consumers(log, number=25):
+def top_consumers(log, number):
     for i in log[number:]:
         total_size = round((float(i[1]/1024) / 1024), 2)
         if total_size != 0:
@@ -97,13 +97,18 @@ def main():
         help="Specify number of instances you wish to display")
 
     (options, _) = parser.parse_args()
+    num = -25
 
     if options.file:
         log_info = get_log_info(options.file)
 
     if options.num:
         num = "-{0}".format(options.num)
+
+    try:
         top_consumers(log_info, number=int(num))
+    except UnboundLocalError:
+        print("No Log File Provided")
 
 
 if __name__ == '__main__':
