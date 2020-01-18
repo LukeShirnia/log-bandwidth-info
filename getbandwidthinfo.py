@@ -1,8 +1,12 @@
 #!/usr/bin/python
+"""
+Place holder
+"""
 import __future__
 from optparse import OptionParser
 import gzip
 import platform
+import datetime
 
 
 COLOURS = {
@@ -53,28 +57,53 @@ def get_log_info(log):
     Total bandwidth for each unique resource
     """
     resources = {}
+    start = ""
+    end = ""
+    total = 0
 
-    with openfile(log) as log:
-        for line in log:
+    with openfile(log) as access_log:
+        for line in access_log:
             line = line.split()
+            if not start:
+                start = datetime.datetime.strptime(
+                    (line[3]).strip("[]"), "%d/%b/%Y:%H:%M:%S")
             try:
                 location = line[6].split("?id", 1)[0]
                 resources[location] = \
                     resources.setdefault(location, 0) + int(line[9])
+                total += int(line[9])
             except IndexError:
                 pass
+        if not end:
+            end = datetime.datetime.strptime(
+                (line[3]).strip("[]"), "%d/%b/%Y:%H:%M:%S")
 
+    general_info = (start, end, total)
     sorted_resources = sorted(resources.items(), key=lambda kv: kv[1])
-    return sorted_resources
+    return sorted_resources, general_info
 
 
-def top_consumers(log, number):
-    for i in log[number:]:
+def top_consumers(resource_info, number, general_info):
+    """
+    Print function for gathered log information
+    """
+    for i in resource_info[number:]:
         total_size = round((float(i[1]/1024) / 1024), 2)
         if total_size != 0:
-            print("File: {0}  {2}Total Bandwidth{4} {3}{1}{4} MB".format(
+            print("Resource: {0}  {2}Total Bandwidth{4} {3}{1:,}{4} MB".format(
                 i[0], total_size,
                 COLOURS["YELLOW"], COLOURS["RED"], COLOURS["ENDC"]))
+
+    print()
+    print("Start Time: {0}".format(
+        datetime.datetime.strftime(general_info[0], '%d/%b/%Y %H:%M:%S')))
+    print("End Time  : {0}".format(
+        datetime.datetime.strftime(general_info[1], '%d/%b/%Y %H:%M:%S')))
+    print("Total Time: {0}".format(
+        general_info[1] - general_info[0]))
+    print("Total Size in timeframe: {0:,} MB".format(
+        round((float(general_info[2]/1024) / 1024), 2)))
+    print()
 
 
 def main():
@@ -90,23 +119,23 @@ def main():
         metavar="File",
         help="Specify a log to check")
     parser.add_option(
-        "-n", "--number",
+        "-s", "--show",
         action="store",
         dest="num",
         metavar="Number",
-        help="Specify number of instances you wish to display")
+        help="Show number of instances you wish to display")
 
     (options, _) = parser.parse_args()
-    num = -25
+    num = 25  # Default number of instances to print
 
     if options.file:
-        log_info = get_log_info(options.file)
+        log_info, general_info = get_log_info(options.file)
 
     if options.num:
-        num = "-{0}".format(options.num)
+        num = "{0}".format(options.num)
 
     try:
-        top_consumers(log_info, number=int(num))
+        top_consumers(log_info, -int(num), general_info)
     except UnboundLocalError:
         print("No Log File Provided")
 
