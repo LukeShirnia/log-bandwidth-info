@@ -69,8 +69,19 @@ def get_log_info(log):
                     (line[3]).strip("[]"), "%d/%b/%Y:%H:%M:%S")
             try:
                 location = line[6].split("?id", 1)[0]
-                resources[location] = \
-                    resources.setdefault(location, 0) + int(line[9])
+                if not resources.get(location):
+                    resources[location] = {}
+                # Calculate total size of all occurrences
+                resources[location]["total_size"] = \
+                    resources[location].setdefault("total_size", 0) + \
+                    int(line[9])
+                resources[location]["count"] = \
+                    resources[location].setdefault("count", 0) + 1
+                resources[location]["average"] = \
+                    resources[location].setdefault("average", 0)
+                resources[location]["average"] = \
+                    (resources[location]["total_size"] /
+                     resources[location]["count"] / 1024) / 1024
                 total += int(line[9])
             except IndexError:
                 pass
@@ -79,20 +90,29 @@ def get_log_info(log):
                 (line[3]).strip("[]"), "%d/%b/%Y:%H:%M:%S")
 
     general_info = (start, end, total)
-    sorted_resources = sorted(resources.items(), key=lambda kv: kv[1])
-    return sorted_resources, general_info
+
+    return resources, general_info
 
 
-def top_consumers(resource_info, number, general_info):
+def top_consumers(raw_info, number, general_info, sort):
     """
     Print function for gathered log information
     """
-    for i in resource_info[number:]:
-        total_size = round((float(i[1]/1024) / 1024), 2)
+    sorted_resources = sorted(raw_info.items(), key=lambda k: k[1][sort])
+
+    for item in sorted_resources[number:]:
+        total_size = round((float(item[1]["total_size"]/1024) / 1024), 2)
         if total_size != 0:
-            print("Resource: {0}  {2}Total Bandwidth{4} {3}{1:,}{4} MB".format(
-                i[0], total_size,
-                COLOURS["YELLOW"], COLOURS["RED"], COLOURS["ENDC"]))
+            print("R: {0:>65}  "
+                  "{4}C:{6} {5}{2}{6}  {4}"
+                  "TB: {5}{1:,} MB{6} {4}"
+                  "A:{6} {5}{3} MB{6}".format(
+                      item[0], total_size, item[1]["count"],
+                      round(item[1]["average"], 2),
+                      COLOURS["YELLOW"], COLOURS["RED"], COLOURS["ENDC"]))
+
+    print()
+    print("R = Resource, C = Count, TB = Total Bandwidth, A = Average size")
 
     print()
     print("Start Time: {0}".format(
@@ -124,18 +144,32 @@ def main():
         dest="num",
         metavar="Number",
         help="Show number of instances you wish to display")
+    parser.add_option(
+        "-S", "--sort",
+        action="store",
+        dest="sort",
+        metavar="t/c/s",
+        help="Specify a sort method (total(t)/count(c)/size(s)/average(a))")
 
     (options, _) = parser.parse_args()
+
+    # Defaults
     num = 25  # Default number of instances to print
+    sort_methods = \
+        {"t": "total_size", "c": "count", "s": "size", "a": "average"}
+    sort = sort_methods["t"]  # Default sorting method
 
     if options.file:
-        log_info, general_info = get_log_info(options.file)
+        raw_log_info, general_info = get_log_info(options.file)
 
     if options.num:
         num = "{0}".format(options.num)
 
+    if options.sort in sort_methods.keys():
+        sort = sort_methods[options.sort]
+
     try:
-        top_consumers(log_info, -int(num), general_info)
+        top_consumers(raw_log_info, -int(num), general_info, sort)
     except UnboundLocalError:
         print("No Log File Provided")
 
