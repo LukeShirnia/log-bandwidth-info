@@ -7,6 +7,7 @@ from optparse import OptionParser
 import gzip
 import platform
 import datetime
+import sys
 
 
 COLOURS = {
@@ -20,6 +21,23 @@ COLOURS = {
     "YELLOW": "\033[93m",
     "CYAN": "\033[36m",
 }
+
+
+def std_exceptions(etype, value, tb):
+    """
+    The following exits cleanly on Ctrl-C or EPIPE
+    while treating other exceptions as before.
+    """
+    sys.excepthook = sys.__excepthook__
+    if issubclass(etype, KeyboardInterrupt):
+        pass
+    elif issubclass(etype, IOError) and value.errno == errno.EPIPE:
+        pass
+    else:
+        sys.__excepthook__(etype, value, tb)
+
+
+sys.excepthook = std_exceptions
 
 
 # Patching gzip.open due to bug (not fixed in python <= 2.6.6)
@@ -68,7 +86,7 @@ def get_log_info(log, timeframe):
                     (line[3]).strip("[]"), "%d/%b/%Y:%H:%M:%S") > timeframe:
                 if not start:
                     start = datetime.datetime.strptime(
-                    (line[3]).strip("[]"), "%d/%b/%Y:%H:%M:%S")
+                        (line[3]).strip("[]"), "%d/%b/%Y:%H:%M:%S")
                 try:
                     location = line[6].split("?id", 1)[0]
                     if not resources.get(location):
@@ -119,8 +137,8 @@ def top_consumers(raw_info, number, general_info, sort):
 
     print("")
     print("{0}R{2} = {1}Resource{2}, {0}C{2} = {1}Count{2}, {0}TB{2} = "
-         "{1}Total Bandwidth{2}, {0}A{2} = {1}Average size{2}".format(
-            COLOURS["YELLOW"], COLOURS["CYAN"], COLOURS["ENDC"]))
+          "{1}Total Bandwidth{2}, {0}A{2} = {1}Average size{2}".format(
+              COLOURS["YELLOW"], COLOURS["CYAN"], COLOURS["ENDC"]))
 
     print("")
     print("Start Time: {0}".format(
@@ -196,6 +214,6 @@ def main():
 if __name__ == '__main__':
     try:
         main()
-    except Exception as e:
+    except Exception as error:
         print("")
-        print(e)
+        print(error)
