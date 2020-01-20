@@ -37,22 +37,18 @@ Options:
 No options - Sorts by Total Bandwidth - Prints top 25 items
 ```
 $ python getbandwidthinfo.py -f access_ssl_log.processed.1.gz
-
 ```
 Number (-S/--show) Option Specified - Sorts by Total Bandwidth - Prints 1000 items from file
 ```
 $ python getbandwidthinfo.py -f access_ssl_log.processed.1.gz --show 1000
-
 ```
 Sort (-s/--sort) Option Specified - Sorts by Count - Prints top 25 items
 ```
 $ python getbandwidthinfo.py -f access_ssl_log.processed.1.gz --sort c
-
 ```
 Hour (-H/--hours) option Specified - Sorts by Total Bandwidth - Calculates on entries displayed in the last 2 hours
 ```
 $ python getbandwidthinfo.py -f access_ssl_log.processed.1.gz --hours 2
-
 ```
 #### Compatibility ####
 
