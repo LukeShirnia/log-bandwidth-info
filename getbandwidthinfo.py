@@ -52,7 +52,7 @@ def openfile(filename):
         return open(filename, "r")
 
 
-def get_log_info(log):
+def get_log_info(log, timeframe):
     """
     Total bandwidth for each unique resource
     """
@@ -64,27 +64,33 @@ def get_log_info(log):
     with openfile(log) as access_log:
         for line in access_log:
             line = line.split()
-            if not start:
-                start = datetime.datetime.strptime(
+            if not timeframe or timeframe and datetime.datetime.strptime(
+                    (line[3]).strip("[]"), "%d/%b/%Y:%H:%M:%S") > timeframe:
+                if not start:
+                    start = datetime.datetime.strptime(
                     (line[3]).strip("[]"), "%d/%b/%Y:%H:%M:%S")
-            try:
-                location = line[6].split("?id", 1)[0]
-                if not resources.get(location):
-                    resources[location] = {}
-                # Calculate total size of all occurrences
-                resources[location]["total_size"] = \
-                    resources[location].setdefault("total_size", 0) + \
-                    int(line[9])
-                resources[location]["count"] = \
-                    resources[location].setdefault("count", 0) + 1
-                resources[location]["average"] = \
-                    resources[location].setdefault("average", 0)
-                resources[location]["average"] = \
-                    (resources[location]["total_size"] /
-                     resources[location]["count"] / 1024) / 1024
-                total += int(line[9])
-            except IndexError:
-                pass
+                try:
+                    location = line[6].split("?id", 1)[0]
+                    if not resources.get(location):
+                        resources[location] = {}
+                    # Calculate total size of all occurrences
+                    resources[location]["total_size"] = \
+                        resources[location].setdefault("total_size", 0) + \
+                        int(line[9])
+                    # Log the amount of times a resource appears in the log
+                    resources[location]["count"] = \
+                        resources[location].setdefault("count", 0) + 1
+                    resources[location]["average"] = \
+                        resources[location].setdefault("average", 0)
+                    # Calculate the average resource size (it may vairy)
+                    resources[location]["average"] = \
+                        (resources[location]["total_size"] /
+                         resources[location]["count"] / 1024) / 1024
+                    total += int(line[9])
+                except IndexError:
+                    pass
+        if not start and timeframe:
+            raise Exception("Nothing in Log for specified timeframe")
         if not end:
             end = datetime.datetime.strptime(
                 (line[3]).strip("[]"), "%d/%b/%Y:%H:%M:%S")
@@ -103,7 +109,7 @@ def top_consumers(raw_info, number, general_info, sort):
     for item in sorted_resources[number:]:
         total_size = round((float(item[1]["total_size"]/1024) / 1024), 2)
         if total_size != 0:
-            print("R: {0:>65}  "
+            print("{4}R{6}: {0:>65}  "
                   "{4}C:{6} {5}{2}{6}  {4}"
                   "TB: {5}{1:,} MB{6} {4}"
                   "A:{6} {5}{3} MB{6}".format(
@@ -111,10 +117,12 @@ def top_consumers(raw_info, number, general_info, sort):
                       round(item[1]["average"], 2),
                       COLOURS["YELLOW"], COLOURS["RED"], COLOURS["ENDC"]))
 
-    print()
-    print("R = Resource, C = Count, TB = Total Bandwidth, A = Average size")
+    print("")
+    print("{0}R{2} = {1}Resource{2}, {0}C{2} = {1}Count{2}, {0}TB{2} = "
+         "{1}Total Bandwidth{2}, {0}A{2} = {1}Average size{2}".format(
+            COLOURS["YELLOW"], COLOURS["CYAN"], COLOURS["ENDC"]))
 
-    print()
+    print("")
     print("Start Time: {0}".format(
         datetime.datetime.strftime(general_info[0], '%d/%b/%Y %H:%M:%S')))
     print("End Time  : {0}".format(
@@ -123,7 +131,7 @@ def top_consumers(raw_info, number, general_info, sort):
         general_info[1] - general_info[0]))
     print("Total Size in timeframe: {0:,} MB".format(
         round((float(general_info[2]/1024) / 1024), 2)))
-    print()
+    print("")
 
 
 def main():
@@ -149,18 +157,29 @@ def main():
         action="store",
         dest="sort",
         metavar="t/c/s",
-        help="Specify a sort method (total(t)/count(c)/size(s)/average(a))")
+        help="Specify a sort method (total(t)/count(c)/average(a))")
+    parser.add_option(
+        "-H", "--hours",
+        action="store",
+        dest="hours",
+        metavar="hours",
+        help="Check the last x hours in log file")
 
     (options, _) = parser.parse_args()
 
     # Defaults
-    num = 25  # Default number of instances to print
     sort_methods = \
-        {"t": "total_size", "c": "count", "s": "size", "a": "average"}
+        {"t": "total_size", "c": "count", "a": "average"}
     sort = sort_methods["t"]  # Default sorting method
+    num = 25  # Default number of instances to print
+    timeframe = None
+
+    if options.hours:
+        now = datetime.datetime.now()
+        timeframe = now - datetime.timedelta(hours=int(options.hours))
 
     if options.file:
-        raw_log_info, general_info = get_log_info(options.file)
+        raw_log_info, general_info = get_log_info(options.file, timeframe)
 
     if options.num:
         num = "{0}".format(options.num)
@@ -175,4 +194,8 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    try:
+        main()
+    except Exception as e:
+        print("")
+        print(e)
