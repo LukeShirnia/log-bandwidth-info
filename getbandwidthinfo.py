@@ -2,7 +2,7 @@
 """
 Place holder
 """
-import __future__
+import __future__  # pylint: disable=unused-import
 from optparse import OptionParser
 import gzip
 import platform
@@ -118,6 +118,20 @@ def get_log_info(log, timeframe):
     return resources, general_info
 
 
+def raw_top_consumers(raw_info, number, general_info, sort):
+    """
+    Print function for gathered log information
+    """
+    sorted_resources = sorted(raw_info.items(), key=lambda k: k[1][sort])
+
+    for item in sorted_resources[number:]:
+        total_size = float(item[1]["total_size"]/1024) / 1024
+        if total_size != 0:
+            print(
+                "{0} {1} {2} {3}".format(
+                    item[0], total_size, item[1]["count"], item[1]["average"]))
+
+
 def top_consumers(raw_info, number, general_info, sort):
     """
     Print function for gathered log information
@@ -125,14 +139,14 @@ def top_consumers(raw_info, number, general_info, sort):
     sorted_resources = sorted(raw_info.items(), key=lambda k: k[1][sort])
 
     for item in sorted_resources[number:]:
-        total_size = round((float(item[1]["total_size"]/1024) / 1024), 2)
+        total_size = float(item[1]["total_size"]/1024) / 1024
         if total_size != 0:
             print("{4}R{6}: {0:>65}  "
                   "{4}C:{6} {5}{2}{6}  {4}"
-                  "TB: {5}{1:,} MB{6} {4}"
-                  "A:{6} {5}{3} MB{6}".format(
+                  "TB: {5}{1:,.2f} MB{6} {4}"
+                  "A:{6} {5}{3:,.2f} MB{6}".format(
                       item[0], total_size, item[1]["count"],
-                      round(item[1]["average"], 2),
+                      item[1]["average"],
                       COLOURS["YELLOW"], COLOURS["RED"], COLOURS["ENDC"]))
 
     print("")
@@ -147,8 +161,8 @@ def top_consumers(raw_info, number, general_info, sort):
         datetime.datetime.strftime(general_info[1], '%d/%b/%Y %H:%M:%S')))
     print("Total Time: {0}".format(
         general_info[1] - general_info[0]))
-    print("Total Size in timeframe: {0:,} MB".format(
-        round((float(general_info[2]/1024) / 1024), 2)))
+    print("Total Size in timeframe: {0:,.2f} MB".format(
+        (float(general_info[2]/1024) / 1024), 2))
     print("")
 
 
@@ -182,6 +196,12 @@ def main():
         dest="hours",
         metavar="hours",
         help="Check the last x hours in log file")
+    parser.add_option(
+        "-r", "--raw",
+        action="store_true",
+        default=False,
+        dest="raw",
+        help="Display information in raw output (no formatting/headers)")
 
     (options, _) = parser.parse_args()
 
@@ -205,6 +225,14 @@ def main():
     if options.sort in sort_methods.keys():
         sort = sort_methods[options.sort]
 
+    if options.raw:
+        try:
+            raw_top_consumers(raw_log_info, -int(num), general_info, sort)
+            sys.exit(0)
+        except UnboundLocalError:
+            print("No Log File Provided")
+            sys.exit(0)
+
     try:
         top_consumers(raw_log_info, -int(num), general_info, sort)
     except UnboundLocalError:
@@ -214,6 +242,6 @@ def main():
 if __name__ == '__main__':
     try:
         main()
-    except Exception as error:
+    except Exception as error:  # pylint: disable=broad-except
         print("")
         print(error)
