@@ -2,9 +2,9 @@
 
 Status: In Progress - The script is in a working state
 
-### Travis ###
+### Build Status ###
 
-![Build Status](https://travis-ci.com/LukeShirnia/logfile-bandwidth-info.svg?branch=master)
+![Build Status](https://github.com/LukeShirnia/logfile-bandwidth-info/workflows/LogFileBandwidthInfo/badge.svg)
 
 ## Description ##
 
